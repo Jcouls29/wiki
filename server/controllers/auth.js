@@ -56,6 +56,7 @@ router.get('/login/:strategy', async (req, res, next) => {
       strategy: req.params.strategy
     }, { req, res })
   } catch (err) {
+    WIKI.logger.error(`[/login/${req.params.strategy}]: ${err.message}`)
     next(err)
   }
 })
@@ -85,6 +86,7 @@ router.all('/login/:strategy/callback', async (req, res, next) => {
       res.redirect('/')
     }
   } catch (err) {
+    WIKI.logger.error(`[/login/${req.params.strategy}/callback]: ${err.message}`)
     next(err)
   }
 })
