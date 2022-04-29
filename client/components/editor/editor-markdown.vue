@@ -319,6 +319,17 @@ DOMPurify.addHook('uponSanitizeElement', (elm) => {
 // HELPER FUNCTIONS
 // ========================================
 
+// Handle File Data URI
+function handleFileDrop(cm, file) {
+  if (file.type.indexOf('image') === 0) {
+    const reader = new FileReader()
+    reader.onload = function(e) {
+      cm.doc.replaceSelection('![image](' + e.target.result + ')')
+    }
+    reader.readAsDataURL(file)
+  }
+}
+
 // Inject line numbers for preview scroll sync
 let linesMap = []
 function injectLineNumbers (tokens, idx, options, env, slf) {
@@ -453,7 +464,9 @@ export default {
     onCmInput: _.debounce(function (newContent) {
       this.processContent(newContent)
     }, 600),
-    onCmPaste (cm, ev) {
+    onCmPaste (cm, e) {
+      handleFileDrop(this.cm, e.clipboardData.files[0])
+
       // const clipItems = (ev.clipboardData || ev.originalEvent.clipboardData).items
       // for (let clipItem of clipItems) {
       //   if (_.startsWith(clipItem.type, 'image/')) {
@@ -781,6 +794,12 @@ export default {
     this.cm.on('change', c => {
       this.$store.set('editor/content', c.getValue())
       this.onCmInput(this.$store.get('editor/content'))
+    })
+    this.cm.on('drop', (data, e) => {
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        data.setCursor(data.coordsChar({left: e.pageX, top: e.pageY}))
+        handleFileDrop(this.cm, e.dataTransfer.files[0])
+      }
     })
     if (this.$vuetify.breakpoint.mdAndUp) {
       this.cm.setSize(null, 'calc(100vh - 112px - 24px)')
