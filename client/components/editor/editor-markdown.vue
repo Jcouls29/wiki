@@ -466,6 +466,7 @@ export default {
     }, 600),
     onCmPaste (cm, e) {
       handleFileDrop(this.cm, e.clipboardData.files[0])
+      this.processMarkers(this.cm.firstLine(), this.cm.lastLine())
 
       // const clipItems = (ev.clipboardData || ev.originalEvent.clipboardData).items
       // for (let clipItem of clipItems) {
@@ -705,7 +706,27 @@ export default {
       })
       this.cm.eachLine(from, to, ln => {
         const line = ln.lineNo()
-        if (ln.text.startsWith('```diagram')) {
+        if (ln.text.startsWith('![image](')) {
+          found = 'image'
+          foundStart = line
+
+          if (ln.height > 0) {
+            this.addMarker({
+              kind: 'image',
+              from: { line: foundStart, ch: 9 },
+              to: { line: foundStart, ch: ln.text.length - 1 },
+              text: 'Data Uri',
+              action: ((start, end) => {
+                return (ev) => {
+                  this.cm.foldCode(start)
+                }
+              })(foundStart, line)
+            })
+            this.cm.foldCode(foundStart)
+          }
+
+          found = null
+        } else if (ln.text.startsWith('```diagram')) {
           found = 'diagram'
           foundStart = line
         } else if (ln.text === '```' && found) {
@@ -799,6 +820,7 @@ export default {
       if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
         data.setCursor(data.coordsChar({left: e.pageX, top: e.pageY}))
         handleFileDrop(this.cm, e.dataTransfer.files[0])
+        this.processMarkers(this.cm.firstLine(), this.cm.lastLine())
       }
     })
     if (this.$vuetify.breakpoint.mdAndUp) {
