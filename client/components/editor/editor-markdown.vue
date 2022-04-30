@@ -467,22 +467,6 @@ export default {
     onCmPaste (cm, e) {
       handleFileDrop(this.cm, e.clipboardData.files[0])
       this.processMarkers(this.cm.firstLine(), this.cm.lastLine())
-
-      // const clipItems = (ev.clipboardData || ev.originalEvent.clipboardData).items
-      // for (let clipItem of clipItems) {
-      //   if (_.startsWith(clipItem.type, 'image/')) {
-      //     const file = clipItem.getAsFile()
-      //     const reader = new FileReader()
-      //     reader.onload = evt => {
-      //       this.$store.commit(`loadingStart`, 'editor-paste-image')
-      //       this.insertAfter({
-      //         content: `![${file.name}](${evt.target.result})`,
-      //         newLine: true
-      //       })
-      //     }
-      //     reader.readAsDataURL(file)
-      //   }
-      // }
     },
     processContent (newContent) {
       linesMap = []
@@ -706,15 +690,18 @@ export default {
       })
       this.cm.eachLine(from, to, ln => {
         const line = ln.lineNo()
-        if (ln.text.startsWith('![image](')) {
+        const dataUriImageIndex = ln.text.indexOf('![image](data:image')
+
+        if (dataUriImageIndex > -1) {
           found = 'image'
           foundStart = line
+          const ending = ln.text.indexOf(')', dataUriImageIndex)
 
           if (ln.height > 0) {
             this.addMarker({
               kind: 'image',
-              from: { line: foundStart, ch: 9 },
-              to: { line: foundStart, ch: ln.text.length - 1 },
+              from: { line: foundStart, ch: dataUriImageIndex + 9 },
+              to: { line: foundStart, ch: ending },
               text: 'Data Uri',
               action: ((start, end) => {
                 return (ev) => {
