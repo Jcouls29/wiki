@@ -330,6 +330,56 @@ function handleFileDrop(cm, file) {
   }
 }
 
+// Markers
+function markerImageDataUri(ln, lineStart) {
+  const dataUriImageIndex = ln.text.indexOf('![image](data:image')
+
+  if (dataUriImageIndex > -1) {
+    const ending = ln.text.indexOf(')', dataUriImageIndex)
+
+    if (ln.height > 0) {
+      this.addMarker({
+        kind: 'image',
+        from: { line: lineStart, ch: dataUriImageIndex + 9 },
+        to: { line: lineStart, ch: ending },
+        text: 'Data Uri',
+        action: ((start, end) => {
+          return (ev) => {
+            this.cm.foldCode(start)
+          }
+        })(lineStart, lineStart)
+      })
+      this.cm.foldCode(lineStart)
+    }
+
+    return true
+  }
+
+  return false
+}
+
+function markerSvg(ln, lineStart) {
+  const svgTag = ln.text.indexOf('<svg')
+
+  if (svgTag > -1) {
+    const ending = ln.text.indexOf('</svg>', svgTag)
+    this.addMarker({
+      kind: 'image',
+      from: { line: lineStart, ch: svgTag },
+      to: { line: lineStart, ch: ending + 6 },
+      text: 'svg',
+      action: ((start, end) => {})(lineStart, lineStart)
+    })
+    this.cm.foldCode(lineStart)
+
+    return true
+  }
+
+  return false
+}
+
+const markerFolders = [markerImageDataUri, markerSvg]
+
 // Inject line numbers for preview scroll sync
 let linesMap = []
 function injectLineNumbers (tokens, idx, options, env, slf) {
@@ -690,30 +740,13 @@ export default {
       })
       this.cm.eachLine(from, to, ln => {
         const line = ln.lineNo()
-        const dataUriImageIndex = ln.text.indexOf('![image](data:image')
 
-        if (dataUriImageIndex > -1) {
-          found = 'image'
-          foundStart = line
-          const ending = ln.text.indexOf(')', dataUriImageIndex)
+        const success = markerFolders.find((f) => f.call(this, ln, line))
+        if (success) {
+          return
+        }
 
-          if (ln.height > 0) {
-            this.addMarker({
-              kind: 'image',
-              from: { line: foundStart, ch: dataUriImageIndex + 9 },
-              to: { line: foundStart, ch: ending },
-              text: 'Data Uri',
-              action: ((start, end) => {
-                return (ev) => {
-                  this.cm.foldCode(start)
-                }
-              })(foundStart, line)
-            })
-            this.cm.foldCode(foundStart)
-          }
-
-          found = null
-        } else if (ln.text.startsWith('```diagram')) {
+        if (ln.text.startsWith('```diagram')) {
           found = 'diagram'
           foundStart = line
         } else if (ln.text === '```' && found) {
