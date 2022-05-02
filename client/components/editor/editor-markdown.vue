@@ -330,52 +330,70 @@ function handleFileDrop(cm, file) {
   }
 }
 
-// Markers
-function markerImageDataUri(ln, lineStart) {
-  const dataUriImageIndex = ln.text.indexOf('![image](data:image')
+function findMarkerText(text, openText, closeText) {
+  let openIndex = text.indexOf(openText)
+  const result = []
 
-  if (dataUriImageIndex > -1) {
-    const ending = ln.text.indexOf(')', dataUriImageIndex)
-
-    if (ln.height > 0) {
-      this.addMarker({
-        kind: 'image',
-        from: { line: lineStart, ch: dataUriImageIndex + 9 },
-        to: { line: lineStart, ch: ending },
-        text: 'Data Uri',
-        action: ((start, end) => {
-          return (ev) => {
-            this.cm.foldCode(start)
-          }
-        })(lineStart, lineStart)
+  while (openIndex > -1) {
+    const closeIndex = text.indexOf(closeText, openIndex)
+    if (closeIndex > -1) {
+      result.push({
+        open: openIndex,
+        close: closeIndex
       })
-      this.cm.foldCode(lineStart)
-    }
 
-    return true
+      openIndex = text.indexOf(openText, closeIndex)
+    } else {
+      return result
+    }
   }
 
-  return false
+  return result
+}
+
+// Markers
+function markerImageDataUri(ln, lineStart) {
+  const found = findMarkerText(ln.text, '![image](data:image', ')')
+  if (found.length === 0) {
+    return false
+  }
+
+  for (const entry of found) {
+    this.addMarker({
+      kind: 'image',
+      from: { line: lineStart, ch: entry.open + 9 },
+      to: { line: lineStart, ch: entry.close },
+      text: 'Data Uri',
+      action: ((start, end) => {
+        return (ev) => {
+          this.cm.foldCode(start)
+        }
+      })(lineStart, lineStart)
+    })
+    this.cm.foldCode(lineStart)
+  }
+
+  return true
 }
 
 function markerSvg(ln, lineStart) {
-  const svgTag = ln.text.indexOf('<svg')
+  const found = findMarkerText(ln.text, '<svg', '</svg>')
+  if (found.length === 0) {
+    return false
+  }
 
-  if (svgTag > -1) {
-    const ending = ln.text.indexOf('</svg>', svgTag)
+  for (const entry of found) {
     this.addMarker({
       kind: 'image',
-      from: { line: lineStart, ch: svgTag },
-      to: { line: lineStart, ch: ending + 6 },
-      text: 'svg',
+      from: { line: lineStart, ch: entry.open + 5 },
+      to: { line: lineStart, ch: entry.close },
+      text: 'data',
       action: ((start, end) => {})(lineStart, lineStart)
     })
     this.cm.foldCode(lineStart)
-
-    return true
   }
 
-  return false
+  return true
 }
 
 const markerFolders = [markerImageDataUri, markerSvg]
@@ -515,8 +533,10 @@ export default {
       this.processContent(newContent)
     }, 600),
     onCmPaste (cm, e) {
+      const ln = cm.getLineHandle(cm.getCursor().line)
+
       handleFileDrop(this.cm, e.clipboardData.files[0])
-      this.processMarkers(this.cm.firstLine(), this.cm.lastLine())
+      markerFolders.filter((f) => f.call(this, ln, ln.lineNo()))
     },
     processContent (newContent) {
       linesMap = []
@@ -741,8 +761,8 @@ export default {
       this.cm.eachLine(from, to, ln => {
         const line = ln.lineNo()
 
-        const success = markerFolders.find((f) => f.call(this, ln, line))
-        if (success) {
+        const success = markerFolders.filter((f) => f.call(this, ln, line))
+        if (success && success.length > 0) {
           return
         }
 
@@ -839,8 +859,11 @@ export default {
     this.cm.on('drop', (data, e) => {
       if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
         data.setCursor(data.coordsChar({left: e.pageX, top: e.pageY}))
+
+        const ln = this.cm.getLineHandle(this.cm.getCursor().line)
+
         handleFileDrop(this.cm, e.dataTransfer.files[0])
-        this.processMarkers(this.cm.firstLine(), this.cm.lastLine())
+        markerFolders.filter((f) => f.call(this, ln, ln.lineNo()))
       }
     })
     if (this.$vuetify.breakpoint.mdAndUp) {
