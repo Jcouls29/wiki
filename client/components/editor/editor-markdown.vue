@@ -288,11 +288,11 @@ const md = new MarkdownIt({
   }
 })
   .use(mdAttrs, {
-    allowedAttributes: ['id', 'class', 'target']
+    allowedAttributes: ['id', 'class', 'target', 'style']
   })
   .use(underline)
   .use(mdEmoji)
-  .use(mdTaskLists, { label: false, labelAfter: false })
+  .use(mdTaskLists, { enabled: true, label: false, labelAfter: false })
   .use(mdExpandTabs)
   .use(mdAbbr)
   .use(mdSup)

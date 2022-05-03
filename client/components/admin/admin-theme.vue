@@ -148,13 +148,14 @@ export default {
       ],
       iconsets: [
         { text: 'Material Design Icons (default)', value: 'mdi' },
-        { text: 'Font Awesome 5', value: 'fa' },
+        { text: 'Font Awesome 6', value: 'fa' },
+        { text: 'Font Awesome 5', value: 'fa5' },
         { text: 'Font Awesome 4', value: 'fa4' }
       ],
       config: {
         theme: 'default',
         darkMode: false,
-        iconset: '',
+        iconset: 'fa',
         injectCSS: '',
         injectHead: '',
         injectBody: ''
