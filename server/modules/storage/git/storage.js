@@ -312,6 +312,10 @@ module.exports = {
     let success = true
 
     await fs.outputFile(filePath, page.injectMetadata(), 'utf8', (err) => {
+      if (!err) {
+        return
+      }
+
       let message = err.message || err
       WIKI.logger.error(`(STORAGE/GIT) Output File Error: ${message}`)
       success = false
