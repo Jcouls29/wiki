@@ -309,14 +309,24 @@ module.exports = {
       fileName = `${page.localeCode}/${fileName}`
     }
     const filePath = path.join(this.repoPath, fileName)
-    await fs.outputFile(filePath, page.injectMetadata(), 'utf8')
+    let success = true
 
-    const gitFilePath = `./${fileName}`
-    if ((await this.git.checkIgnore(gitFilePath)).length === 0) {
-      await this.git.add(gitFilePath)
-      await this.git.commit(`docs: update ${page.path}`, fileName, {
-        '--author': `"${page.authorName} <${page.authorEmail}>"`
-      })
+    await fs.outputFile(filePath, page.injectMetadata(), 'utf8', (err) => {
+      let message = err.message || err
+      WIKI.logger.error(`(STORAGE/GIT) Output File Error: ${message}`)
+      success = false
+    })
+
+    if (success) {
+      const gitFilePath = `./${fileName}`
+      if ((await this.git.checkIgnore(gitFilePath)).length === 0) {
+        await this.git.add(gitFilePath)
+        await this.git.commit(`docs: update ${page.path}`, fileName, {
+          '--author': `"${page.authorName} <${page.authorEmail}>"`
+        })
+      }
+    } else {
+      WIKI.logger.error(`(STORAGE/GIT) Could not commit file due to fs-extra outputFile failure. Please try to save again`)
     }
   },
   /**
