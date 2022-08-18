@@ -32,6 +32,8 @@ module.exports = {
     await fs.ensureDir(this.repoPath)
     this.git = sgit(this.repoPath)
 
+    this.git.env('GIT_ICASE_PATHSPECS', '1')
+
     // Set custom binary path
     if (!_.isEmpty(this.config.gitBinaryPath)) {
       this.git.customBinary(this.config.gitBinaryPath)
