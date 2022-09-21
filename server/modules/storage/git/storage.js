@@ -32,8 +32,6 @@ module.exports = {
     await fs.ensureDir(this.repoPath)
     this.git = sgit(this.repoPath)
 
-    this.git.env('GIT_ICASE_PATHSPECS', '1')
-
     // Set custom binary path
     if (!_.isEmpty(this.config.gitBinaryPath)) {
       this.git.customBinary(this.config.gitBinaryPath)
@@ -50,6 +48,9 @@ module.exports = {
     // Disable quotePath
     // Link https://git-scm.com/docs/git-config#Documentation/git-config.txt-corequotePath
     await this.git.raw(['config', '--local', 'core.quotepath', false])
+
+    // Set Ignore Case
+    await this.git.raw(['config', '--local', 'core.ignorecase', true])
 
     // Set default author
     await this.git.raw(['config', '--local', 'user.email', this.config.defaultEmail])
@@ -293,7 +294,9 @@ module.exports = {
 
     const gitFilePath = `./${fileName}`
     if ((await this.git.checkIgnore(gitFilePath)).length === 0) {
+      WIKI.logger.info(`(STORAGE/GIT) [git add] Committing new file [${page.localeCode}] ${page.path}...`)
       await this.git.add(gitFilePath)
+      WIKI.logger.info(`(STORAGE/GIT) [git commit] Committing new file [${page.localeCode}] ${page.path}...`)
       await this.git.commit(`docs: create ${page.path}`, fileName, {
         '--author': `"${page.authorName} <${page.authorEmail}>"`
       })
@@ -326,7 +329,10 @@ module.exports = {
     if (success) {
       const gitFilePath = `./${fileName}`
       if ((await this.git.checkIgnore(gitFilePath)).length === 0) {
+        WIKI.logger.info(`(STORAGE/GIT) [git add] Committing updated file [${page.localeCode}] ${page.path}...`)
         await this.git.add(gitFilePath)
+
+        WIKI.logger.info(`(STORAGE/GIT) [git commit] Committing updated file [${page.localeCode}] ${page.path}...`)
         await this.git.commit(`docs: update ${page.path}`, fileName, {
           '--author': `"${page.authorName} <${page.authorEmail}>"`
         })
