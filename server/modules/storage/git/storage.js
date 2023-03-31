@@ -50,6 +50,9 @@ module.exports = {
     await this.git.raw(['config', '--local', 'core.quotepath', false])
     await this.git.raw(['config', '--local', 'color.ui', false])
 
+    // Set Ignore Case
+    await this.git.raw(['config', '--local', 'core.ignorecase', true])
+
     // Set default author
     await this.git.raw(['config', '--local', 'user.email', this.config.defaultEmail])
     await this.git.raw(['config', '--local', 'user.name', this.config.defaultName])
@@ -306,7 +309,9 @@ module.exports = {
 
     const gitFilePath = `./${fileName}`
     if ((await this.git.checkIgnore(gitFilePath)).length === 0) {
+      WIKI.logger.info(`(STORAGE/GIT) [git add] Committing new file [${page.localeCode}] ${page.path}...`)
       await this.git.add(gitFilePath)
+      WIKI.logger.info(`(STORAGE/GIT) [git commit] Committing new file [${page.localeCode}] ${page.path}...`)
       await this.git.commit(`docs: create ${page.path}`, fileName, {
         '--author': `"${page.authorName} <${page.authorEmail}>"`
       })
@@ -324,14 +329,31 @@ module.exports = {
       fileName = `${page.localeCode}/${fileName}`
     }
     const filePath = path.join(this.repoPath, fileName)
-    await fs.outputFile(filePath, page.injectMetadata(), 'utf8')
+    let success = true
 
-    const gitFilePath = `./${fileName}`
-    if ((await this.git.checkIgnore(gitFilePath)).length === 0) {
-      await this.git.add(gitFilePath)
-      await this.git.commit(`docs: update ${page.path}`, fileName, {
-        '--author': `"${page.authorName} <${page.authorEmail}>"`
-      })
+    await fs.outputFile(filePath, page.injectMetadata(), 'utf8', (err) => {
+      if (!err) {
+        return
+      }
+
+      let message = err.message || err
+      WIKI.logger.error(`(STORAGE/GIT) Output File Error: ${message}`)
+      success = false
+    })
+
+    if (success) {
+      const gitFilePath = `./${fileName}`
+      if ((await this.git.checkIgnore(gitFilePath)).length === 0) {
+        WIKI.logger.info(`(STORAGE/GIT) [git add] Committing updated file [${page.localeCode}] ${page.path}...`)
+        await this.git.add(gitFilePath)
+
+        WIKI.logger.info(`(STORAGE/GIT) [git commit] Committing updated file [${page.localeCode}] ${page.path}...`)
+        await this.git.commit(`docs: update ${page.path}`, fileName, {
+          '--author': `"${page.authorName} <${page.authorEmail}>"`
+        })
+      }
+    } else {
+      WIKI.logger.error(`(STORAGE/GIT) Could not commit file due to fs-extra outputFile failure. Please try to save again`)
     }
   },
   /**

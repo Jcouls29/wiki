@@ -210,6 +210,8 @@ import mdMark from 'markdown-it-mark'
 import mdMultiTable from 'markdown-it-multimd-table'
 import mdFootnote from 'markdown-it-footnote'
 import mdImsize from 'markdown-it-imsize'
+import mdFontAwesome from 'markdown-it-fontawesome'
+import mdSpans from 'markdown-it-bracketed-spans'
 import katex from 'katex'
 import underline from '../../libs/markdown-it-underline'
 import 'katex/dist/contrib/mhchem'
@@ -262,12 +264,12 @@ const md = new MarkdownIt({
   }
 })
   .use(mdAttrs, {
-    allowedAttributes: ['id', 'class', 'target']
+    allowedAttributes: ['id', 'class', 'target', 'style']
   })
   .use(mdDecorate)
   .use(underline)
   .use(mdEmoji)
-  .use(mdTaskLists, { label: false, labelAfter: false })
+  .use(mdTaskLists, { enabled: true, label: false, labelAfter: false })
   .use(mdExpandTabs)
   .use(mdAbbr)
   .use(mdSup)
@@ -276,6 +278,8 @@ const md = new MarkdownIt({
   .use(mdMark)
   .use(mdFootnote)
   .use(mdImsize)
+  .use(mdSpans)
+  .use(mdFontAwesome)
 
 // DOMPurify fix for draw.io
 DOMPurify.addHook('uponSanitizeElement', (elm) => {
@@ -295,6 +299,85 @@ DOMPurify.addHook('uponSanitizeElement', (elm) => {
 // ========================================
 // HELPER FUNCTIONS
 // ========================================
+
+// Handle File Data URI
+function handleFileDrop(cm, file) {
+  if (file.type.indexOf('image') === 0) {
+    const reader = new FileReader()
+    reader.onload = function(e) {
+      cm.doc.replaceSelection('![image](' + e.target.result + ')')
+    }
+    reader.readAsDataURL(file)
+  }
+}
+
+function findMarkerText(text, openText, closeText) {
+  let openIndex = text.indexOf(openText)
+  const result = []
+
+  while (openIndex > -1) {
+    const closeIndex = text.indexOf(closeText, openIndex)
+    if (closeIndex > -1) {
+      result.push({
+        open: openIndex,
+        close: closeIndex
+      })
+
+      openIndex = text.indexOf(openText, closeIndex)
+    } else {
+      return result
+    }
+  }
+
+  return result
+}
+
+// Markers
+function markerImageDataUri(ln, lineStart) {
+  const found = findMarkerText(ln.text, '![image](data:image', ')')
+  if (found.length === 0) {
+    return false
+  }
+
+  for (const entry of found) {
+    this.addMarker({
+      kind: 'image',
+      from: { line: lineStart, ch: entry.open + 9 },
+      to: { line: lineStart, ch: entry.close },
+      text: 'Data Uri',
+      action: ((start, end) => {
+        return (ev) => {
+          this.cm.foldCode(start)
+        }
+      })(lineStart, lineStart)
+    })
+    this.cm.foldCode(lineStart)
+  }
+
+  return true
+}
+
+function markerSvg(ln, lineStart) {
+  const found = findMarkerText(ln.text, '<svg', '</svg>')
+  if (found.length === 0) {
+    return false
+  }
+
+  for (const entry of found) {
+    this.addMarker({
+      kind: 'image',
+      from: { line: lineStart, ch: entry.open + 5 },
+      to: { line: lineStart, ch: entry.close },
+      text: 'data',
+      action: ((start, end) => {})(lineStart, lineStart)
+    })
+    this.cm.foldCode(lineStart)
+  }
+
+  return true
+}
+
+const markerFolders = [markerImageDataUri, markerSvg]
 
 // Inject line numbers for preview scroll sync
 let linesMap = []
@@ -432,22 +515,11 @@ export default {
     onCmInput: _.debounce(function (newContent) {
       this.processContent(newContent)
     }, 600),
-    onCmPaste (cm, ev) {
-      // const clipItems = (ev.clipboardData || ev.originalEvent.clipboardData).items
-      // for (let clipItem of clipItems) {
-      //   if (_.startsWith(clipItem.type, 'image/')) {
-      //     const file = clipItem.getAsFile()
-      //     const reader = new FileReader()
-      //     reader.onload = evt => {
-      //       this.$store.commit(`loadingStart`, 'editor-paste-image')
-      //       this.insertAfter({
-      //         content: `![${file.name}](${evt.target.result})`,
-      //         newLine: true
-      //       })
-      //     }
-      //     reader.readAsDataURL(file)
-      //   }
-      // }
+    onCmPaste (cm, e) {
+      const ln = cm.getLineHandle(cm.getCursor().line)
+
+      handleFileDrop(this.cm, e.clipboardData.files[0])
+      markerFolders.filter((f) => f.call(this, ln, ln.lineNo()))
     },
     processContent (newContent) {
       linesMap = []
@@ -671,6 +743,12 @@ export default {
       })
       this.cm.eachLine(from, to, ln => {
         const line = ln.lineNo()
+
+        const success = markerFolders.filter((f) => f.call(this, ln, line))
+        if (success && success.length > 0) {
+          return
+        }
+
         if (ln.text.startsWith('```diagram')) {
           found = 'diagram'
           foundStart = line
@@ -760,6 +838,16 @@ export default {
     this.cm.on('change', c => {
       this.$store.set('editor/content', c.getValue())
       this.onCmInput(this.$store.get('editor/content'))
+    })
+    this.cm.on('drop', (data, e) => {
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        data.setCursor(data.coordsChar({left: e.pageX, top: e.pageY}))
+
+        const ln = this.cm.getLineHandle(this.cm.getCursor().line)
+
+        handleFileDrop(this.cm, e.dataTransfer.files[0])
+        markerFolders.filter((f) => f.call(this, ln, ln.lineNo()))
+      }
     })
     if (this.$vuetify.breakpoint.mdAndUp) {
       this.cm.setSize(null, 'calc(100vh - 112px - 24px)')

@@ -38,11 +38,21 @@ html(lang=siteConfig.lang)
         siteConfig.devMode = true
 
     //- Icon Set
-    if config.theming.iconset === 'fa'
+    if config.theming.iconset === 'fa' || config.theming.iconset === 'fa6'
       link(
         type='text/css'
         rel='stylesheet'
-        href='https://use.fontawesome.com/releases/v5.10.0/css/all.css'
+        href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css'
+        )
+      script(
+        type='text/javascript'
+        source='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/js/all.min.js'
+      )
+    else if config.theming.iconset === 'fa5'
+      link(
+        type='text/css'
+        rel='stylesheet'
+        href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css'
         )
     else if config.theming.iconset === 'fa4'
       link(

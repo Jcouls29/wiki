@@ -321,8 +321,9 @@ module.exports = class User extends Model {
               skipChangePwd: !strInfo.useForm
             })
             resolve(resp)
-          } catch (err) {
-            reject(err)
+          } catch (e) {
+            WIKI.logger.error(`Passport Failed: ${e.message} [Strategy: ${selStrategy.key}, ]`)
+            reject(e)
           }
         })(context.req, context.res, () => {})
       })

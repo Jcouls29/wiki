@@ -37,6 +37,7 @@ module.exports = {
     pathinfo: true,
     crossOriginLoading: 'use-credentials'
   },
+  devtool: 'source-map',
   module: {
     rules: [
       {
